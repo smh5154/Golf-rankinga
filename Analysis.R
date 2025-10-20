@@ -24,4 +24,12 @@ GD2025categories <-  data %>% filter(!is.na(GD2025Rank)) %>%
 cor_matrixGD2025 <- cor(GD2025categories)
 corrplot(cor_matrixGD2025, method = "number", diag = FALSE, type = 'upper')
 
+ggplot(data = data, aes(x = GD2025ShotOptions, y = GD2025LayoutVariety)) + geom_point() +
+  geom_smooth(method = "lm")
+# Fit a linear model to the data
+GD2025data <- data %>% filter(!is.na(GD2025Rank))
+lm_model25LV_SO <- lm(GD2025LayoutVariety ~ GD2025ShotOptions, data = GD2025data)
+GD2025data$residuals <- residuals(lm_model)
+# Find the point(s) with the largest absolute residuals
+
 # post mm/dd/yy ====
