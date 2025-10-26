@@ -12,6 +12,13 @@ install.packages("tidygeocoder")
 library(tidygeocoder)
 install.packages("sf")
 library(sf)
+install.packages(c( "sfhotspot", "rnaturalearth", "rnaturalearthdata"))
+library(sfhotspot)
+library(rnaturalearth)
+library(rnaturalearthdata)
+install.packages("tidyr")
+library(tidyr)
+
 
 # Data import ====
 data <- read_sheet("https://docs.google.com/spreadsheets/d/15IVe2_WEcwP6BUVWD9CAtAhV_jD6cXkmSl4ZSLyNklc/edit?gid=0#gid=0",
@@ -112,6 +119,49 @@ cor_matrixGD2025 <- cor(GD2025categories)
 new_names <- c("Shot Options", "Character", "Challenge", "Layout Variety",
                "Fun", "Aesthetics", "Conditioning")
 
+# slope vs difficulty
+SlopevDifficultymodel5 <- lm(GD2025Challenge ~ Slope, data = data)
+summary(SlopevDifficultymodel5)
+SlopevDifficultymodel3 <- lm(GD2023Challenge ~ Slope, data = data)
+summary(SlopevDifficultymodel3)
+SlopevDifficultymodel1 <- lm(GD2021Challenge ~ Slope, data = data)
+summary(SlopevDifficultymodel1)
+ggplot(data = data, aes(x = GD2021Challenge,  y = Slope)) + 
+  geom_point(size=1) + geom_smooth(method = "lm") + theme_classic()
+
+ggplot(data = data, aes(x = GD2025Rank,  y = Slope, color=Status)) + 
+  geom_point(size=1) + geom_smooth(method = "lm", se = FALSE) + theme_classic()
+ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Challenge, color=Status)) + 
+  geom_point(size=1) + geom_smooth(method = "lm", se = FALSE) + theme_classic()
+
+ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Conditioning, group=Status, color=Status)) + 
+   geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+
+  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Challenge, group=Status, color=Status)) + 
+    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+
+  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025ShotOptions, group=Status, color=Status)) + 
+    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+  
+ggplot(data = data, aes(x = GD2025Rank,  y = GD2025LayoutVariety, group=Status, color=Status)) + 
+    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+  
+  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Fun, group=Status, color=Status)) + 
+    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+ 
+  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Aesthetics, group=Status, color=Status)) + 
+    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+  
+  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Character, group=Status, color=Status)) + 
+    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+  
 rownames(cor_matrixGD2025) <- new_names
 colnames(cor_matrixGD2025) <- new_names
 corrplot(cor_matrixGD2025, method = "number", diag = FALSE, type = 'upper', tl.srt = 45,
@@ -188,3 +238,21 @@ data %>% filter(!is.na(GD2025PublicRank)) %>% ggplot() +
   labs(title = "Points on US Map by City and State") +
   theme_void() +
   coord_map() # Ensures correct aspect ratio for the map
+
+data <- data %>% arrange(GD2021Rank) %>%
+  mutate(
+    next_Value2021score = lead(GD2021Score), # Get the value from the row below
+    Percent_Greater_Than_next2021score = ((GD2021Score - next_Value2021score) / next_Value2021score) * 100
+  )
+ggplot(data = data, aes(x = GD2021Rank,  y = Percent_Greater_Than_next2021score)) + 
+  geom_point(size=1) + geom_smooth(method = "lm") + theme_classic() + 
+  geom_text(aes(label = GD2021Rank), nudge_y = 0.2)
+
+data %>% filter(GD2025Rank >= 1 & GD2025Rank <= 20) %>% 
+  select(Course, GD2025Conditioning, GD2023Conditioning, GD2021Conditioning) %>% 
+  pivot_longer(
+  cols = c(GD2025Conditioning, GD2023Conditioning, GD2021Conditioning), 
+  names_to = "Year",        # New column for original column names
+  values_to = "CondScore",         # New column for original column values
+) %>% ggplot(aes(x = Year, y = CondScore)) + geom_point() + facet_wrap(~Course)
+  
