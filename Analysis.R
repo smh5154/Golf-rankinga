@@ -25,6 +25,8 @@ data <- read_sheet("https://docs.google.com/spreadsheets/d/15IVe2_WEcwP6BUVWD9CA
                    sheet = "data")
 write_csv(data,file="data/dataOCT19.csv")
 
+PGA_USopen <- read_sheet("https://docs.google.com/spreadsheets/d/1-pRyojgI0UGO7ro27vQt37R9HSb8EX1bvyEEObOpZFw/edit?gid=1486180131#gid=1486180131",
+                   sheet = "PGA_USopen")
 
 # Datasets =====
 #only the 7 categories for 2025 N=200
@@ -32,6 +34,27 @@ GD2025categories <-  data %>% filter(!is.na(GD2025Rank)) %>% select(GD2025ShotOp
 
 #2025 GD courses with all columns N=200
 GD2025data <- data %>% filter(!is.na(GD2025Rank))
+
+data <- data %>% mutate(ShotOptions25_23inc = (GD2025ShotOptions - GD2023ShotOptions) )
+data <- data %>% mutate(LV25_23inc = (GD2025LayoutVariety - GD2023LayoutVariety) )
+data <- data %>% mutate(Character25_23inc = (GD2025Character - GD2023Character) )
+data <- data %>% mutate(Challenge25_23inc = (GD2025Challenge - GD2023Challenge) )
+data <- data %>% mutate(Fun25_23inc = (GD2025Fun - GD2023Fun))
+data <- data %>% mutate(Aesthetics25_23inc = (GD2025Aesthetics - GD2023Aesthetics) )
+data <- data %>% mutate(Conditioning25_23inc = (GD2025Conditioning - GD2023Conditioning) )
+
+data %>% select(GD2025Rank, Course, ShotOptions25_23inc, LV25_23inc, Fun25_23inc, Conditioning25_23inc, Character25_23inc, Challenge25_23inc, Aesthetics25_23inc) %>%
+  pivot_longer(
+    cols = c(ShotOptions25_23inc, LV25_23inc, Fun25_23inc, Conditioning25_23inc, Character25_23inc, Challenge25_23inc, Aesthetics25_23inc), 
+    names_to = "Category",        # New column for original column names
+    values_to = "Score",         # New column for original column values
+  ) %>%  ggplot(aes(x = Score,  y = Category, fill = Category)) + geom_density_ridges(quantile_lines = TRUE) + theme_classic() + 
+  scale_x_continuous(limits = c(-.4, .4), breaks = seq(-.4, .4, by = .1)) + geom_vline(xintercept = c(0.0),linetype = "dashed", color = "gray", linewidth = .2)
+
+
+data$Fun25_23percdiff <- ((data$GD2025ShotOptions - data$GD2023ShotOptions) / data$GD2023ShotOptions) * 100
+data$Aesthetics25_23percdiff <- ((data$GD2025ShotOptions - data$GD2023ShotOptions) / data$GD2023ShotOptions) * 100
+data$Conditioning25_23percdiff <- ((data$GD2025ShotOptions - data$GD2023ShotOptions) / data$GD2023ShotOptions) * 100
 
 GD2025long <- GD2025categories  %>% 
   pivot_longer(cols = everything(), names_to = "Category", values_to = "Score")
@@ -248,11 +271,33 @@ ggplot(data = data, aes(x = GD2021Rank,  y = Percent_Greater_Than_next2021score)
   geom_point(size=1) + geom_smooth(method = "lm") + theme_classic() + 
   geom_text(aes(label = GD2021Rank), nudge_y = 0.2)
 
-data %>% filter(GD2025Rank >= 1 & GD2025Rank <= 20) %>% 
-  select(Course, GD2025Conditioning, GD2023Conditioning, GD2021Conditioning) %>% 
+custom_labels <- c("2021", "2023", "2025")
+
+data %>% arrange(desc(Fun25_23inc)) %>% slice_head(n = 9) %>% 
+  select(Course, GD2025Fun, GD2023Fun) %>% 
   pivot_longer(
-  cols = c(GD2025Conditioning, GD2023Conditioning, GD2021Conditioning), 
+  cols = c(GD2025Fun, GD2023Fun), 
   names_to = "Year",        # New column for original column names
-  values_to = "CondScore",         # New column for original column values
-) %>% ggplot(aes(x = Year, y = CondScore)) + geom_point() + facet_wrap(~Course)
+  values_to = "FunScore",         # New column for original column values
+) %>% ggplot(aes(x = Year, y = FunScore)) + geom_point() + facet_wrap(~Course, nrow = 3) +
+  theme_bw() + scale_x_discrete(labels = custom_labels) + geom_text(aes(label = FunScore), vjust = -0.5, size=2.5) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        legend.position = "bottom",
+        legend.title = element_blank()) +
+  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .5))
+
+
+data %>% filter(GD2025Rank <= 100) %>% 
+filter(!is.na(GD2025Rank) & !is.na(GOLF2024Rank)) %>%
+  summarise(n = n())
+  
+data %>% filter(GD2025Rank <= 100) %>% ggplot(aes(x=GD2025Rank, y=GOLF2024Rank)) + geom_point() +
+  theme_classic()
+
+
+PGA_USopen %>% filter(Rater == "GolfDigest") %>%
+  ggplot(aes(x=Year, y=RankGD, color= Tournament)) + geom_point(size=2.5) + theme_classic() + theme(legend.position = c(0.8, 0.8), legend.title = element_blank()) +
+  theme(legend.box.background = element_rect(color = "gray", fill = NA, linewidth = 1)) + geom_line(linetype = "dotted") + ylab("Rank (Golf Digest)") +
+  scale_color_manual(values = c("PGA Championship" = "gray50", "US Open" = "dodgerblue2"))
   
