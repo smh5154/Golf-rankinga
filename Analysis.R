@@ -126,6 +126,7 @@ data %>% filter(GD2025Rank >= 1 & GD2025Rank <= 100) %>% count(Status)
 data %>% filter(!is.na(GOLF2024Rank)) %>% count(Status)
 
 
+
 # Percent of Courses covered ====
 #approx 16,000 courses in the US
 #approx 12,000 are public, approx 4,000 are private
