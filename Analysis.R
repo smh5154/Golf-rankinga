@@ -1,22 +1,27 @@
 # Packages/Libraries =====
+install.packages("corrplot")
+install.packages("gganimate")
+install.packages("ggridges")
+install.packages("tidygeocoder")
+install.packages(c( "sfhotspot", "rnaturalearth", "rnaturalearthdata"))
+install.packages("sf")
+install.packages("tidyr")
+install.packages("naniar")
+install.packages("ggrepel")
+library(ggrepel)
+library(ggplot2)
+library(naniar)
 library(googlesheets4)
 library(ggplot2)
 library(tidyverse)
-install.packages("corrplot")
 library(corrplot)
-install.packages("gganimate")
 library(gganimate)
-install.packages("ggridges")
 library(ggridges)
-install.packages("tidygeocoder")
 library(tidygeocoder)
-install.packages("sf")
 library(sf)
-install.packages(c( "sfhotspot", "rnaturalearth", "rnaturalearthdata"))
 library(sfhotspot)
 library(rnaturalearth)
 library(rnaturalearthdata)
-install.packages("tidyr")
 library(tidyr)
 
 
@@ -214,9 +219,28 @@ ggplot(data = GD2025categories, aes(x = GD2025ShotOptions, y = SO_LVdiff)) + geo
 # post mm/dd/yy ====
 
 data <- data %>%
-  mutate(differenceG2024_GD2025 = GOLF2024Rank -GD2025Rank)
-ggplot(data=data, aes(x=GD2025Rank, y=differenceG2024_GD2025)) + geom_point()
+  mutate(differenceG2024_GD2025 = GD2025Rank - GOLF2024Rank)
+data %>% filter(GD2025Rank <=100) %>% ggplot(aes(x=GD2025Rank, y=differenceG2024_GD2025)) + geom_point() + theme_classic() + 
+  geom_hline(yintercept = 0, color = "darkgreen", linetype = "dashed") + 
+  annotate("text", x = 80, y = 50, label = "@ParAndRank", angle = 0, size = 5, color = "grey", alpha = 1) +
+  labs(x = "Golf Digest 2025 Rank",y = "Ranking Difference between \nGOLF and Golf Digest")
 
+
+courses25 <- c("Muirfield Village Golf Club", "Shadow Creek", "Pinehurst No. 2", "San Francisco Golf Club", "Shoreacres")
+data %>% filter(GD2025Rank <= 25| GOLF2024Rank <=25) %>% ggplot(aes(x=GD2025Rank, y=GOLF2024Rank, label = ifelse(Course %in% courses25, Course, ""))) + 
+  geom_point(color="green4", size=2.5) + theme_classic() +   geom_text_repel(point.padding = 0.2, size=3 ,nudge_y = .5, hjust = 0.5, segment.curvature = -1e-20, arrow = arrow(length = unit(0.015, "npc"))) + 
+  geom_abline(intercept = 0, slope = 1, color = "darkgreen", linetype = "dashed") +
+  annotate("text", x = 40, y = 75, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1) +
+  labs(x="2025 Golf Digest Ranking", y="2024 GOLF Ranking") +
+  scale_x_continuous(limits = c(0, 50), breaks = seq(0, 50, by = 10)) +
+  scale_y_continuous(limits = c(0, 90), breaks = seq(0, 90, by = 10))
+  
+
+
+
+data %>% filter(GD2025Rank <= 100| GOLF2024Rank <=100) %>% ggplot(aes(x=GD2025Rank, y=GOLF2024Rank)) + geom_point() + theme_classic() + 
+  geom_abline(intercept = 0, slope = 1, color = "darkgreen", linetype = "dashed") + geom_miss_point()  +
+  annotate("text", x = 40, y = 100, label = "@ParAndRank", angle = 0, size = 5, color = "grey", alpha = 1)
 
 GD2025data <- GD2025data %>% mutate(GD2025ShotOptionsChange = GD2025ShotOptions - lead(GD2025ShotOptions)) %>%
   mutate(GD2025CharacterChange = GD2025Character - lead(GD2025Character)) %>%
@@ -302,3 +326,29 @@ PGA_USopen %>% filter(Rater == "GolfDigest") %>%
   theme(legend.box.background = element_rect(color = "gray", fill = NA, linewidth = 1)) + geom_line(linetype = "dotted") + ylab("Rank (Golf Digest)") +
   scale_color_manual(values = c("PGA Championship" = "gray50", "US Open" = "dodgerblue2"))
   
+
+df <- data.frame(
+  x = c(1, 2, 3, NA, 5, 6),
+  y = c(10, NA, 30, 40, 50, 60),
+  group = c("A", "B", "A", "C", "B", "A")
+)
+
+# Create a new column to identify NA points
+df_na <- tibble(
+  x = c(1, 2, NA, 4, 5, 6),
+  y = c(1, 2, 3, 4, NA, 6),
+  category = c("A", "B", "A", "C", "B", "C"),
+  has_na = c(FALSE, FALSE, TRUE, FALSE, TRUE, FALSE)
+)
+
+ggplot(df_na, aes(x = x, y = y)) +
+  geom_point(aes(shape = has_na, color = has_na), size = 3) +
+  scale_shape_manual(values = c(16, 4)) +
+  scale_color_manual(values = c("black", "red")) +
+  labs(
+    title = "Scatter plot highlighting rows with NA values",
+    x = "X-axis",
+    y = "Y-axis",
+    color = "Has NA?",
+    shape = "Has NA?"
+  )
