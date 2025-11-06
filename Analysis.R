@@ -1,3 +1,4 @@
+
 # Packages/Libraries =====
 install.packages("corrplot")
 install.packages("gganimate")
@@ -8,6 +9,8 @@ install.packages("sf")
 install.packages("tidyr")
 install.packages("naniar")
 install.packages("ggrepel")
+install.packages("gifski")
+library(gifski)
 library(ggrepel)
 library(ggplot2)
 library(naniar)
@@ -31,7 +34,7 @@ data <- read_sheet("https://docs.google.com/spreadsheets/d/15IVe2_WEcwP6BUVWD9CA
 write_csv(data,file="data/dataOCT19.csv")
 
 PGA_USopen <- read_sheet("https://docs.google.com/spreadsheets/d/1-pRyojgI0UGO7ro27vQt37R9HSb8EX1bvyEEObOpZFw/edit?gid=1486180131#gid=1486180131",
-                   sheet = "PGA_USopen")
+                         sheet = "PGA_USopen")
 
 # Datasets =====
 #only the 7 categories for 2025 N=200
@@ -70,7 +73,7 @@ GD2025cats_ranklong <- GD2025cats_rank %>%  rename(Rank2025GD = GD2025Rank) %>%
     cols = starts_with("GD2025"), # Select columns to pivot
     names_to = "Category",        # New column for original column names
     values_to = "Score")   %>%           # New column for the values
-   mutate(Year = "2025") %>% rename(Rank = Rank2025GD)
+  mutate(Year = "2025") %>% rename(Rank = Rank2025GD)
 
 GD2023cats_rank <- data %>% filter(!is.na(GD2023Rank)) %>% select(GD2023ShotOptions:GD2023Conditioning, GD2023Rank)
 GD2023cats_ranklong <- GD2023cats_rank %>%  rename(Rank2023GD = GD2023Rank) %>%
@@ -123,6 +126,60 @@ GD2025cats_ranklong %>% filter(Category == "GD2025ShotOptions" | Category == "GD
 
 data %>% filter(!is.na(GD2025Rank))
 
+
+# NOV 4, 2025 ====
+courses25 <- c("Muirfield Village Golf Club", "Shadow Creek", "Pinehurst No. 2", "San Francisco Golf Club", "Shoreacres")
+data %>% filter(GD2025Rank <= 25| GOLF2024Rank <=25) %>% ggplot(aes(x=GD2025Rank, y=GOLF2024Rank, label = ifelse(Course %in% courses25, Course, ""))) + 
+  geom_point(color="green4", size=2.5) + theme_classic() +   geom_text_repel(point.padding = 0.2, size=3 ,nudge_y = .5, hjust = 0.5, segment.curvature = -1e-20, arrow = arrow(length = unit(0.015, "npc"))) + 
+  geom_abline(intercept = 0, slope = 1, color = "darkgreen", linetype = "dashed") +
+  annotate("text", x = 40, y = 75, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1) +
+  labs(x="2025 Golf Digest Ranking", y="2024 GOLF Ranking") +
+  scale_x_continuous(limits = c(0, 50), breaks = seq(0, 50, by = 10)) +
+  scale_y_continuous(limits = c(0, 90), breaks = seq(0, 90, by = 10))
+
+
+
+# NOV 6, 2025
+
+data %>% filter(Course %in% c("Ballyneal Golf Club", "Old Town Club", "TPC Sawgrass (Players Stadium)", "Shoreacres",
+                  "Sleepy Hollow Country Club", "Myopia Hunt Club", "California Golf Club", "Rock Creek Cattle Company",
+                  "Essex County Club")) %>% 
+  pivot_longer(cols = matches("^GD\\d{4} ?Rank$"), names_to = "RatedYear",  values_to = "Rank" ) %>%
+  mutate(RatedYear = gsub("GD|Rank|\\s", "", RatedYear)  ) %>%
+  select(Course, RatedYear, Rank) %>% ggplot(aes(x=RatedYear, y=Rank, color = Course, group=Course)) + geom_point(size=3) + geom_line(linetype="dotted") + 
+  theme_classic() + scale_y_continuous(limits = c(0, 120), breaks = seq(0, 120, by = 10)) + 
+  labs(x="Year Rated", y="Golf Digest Rank", title = "GOLF DIGEST'S CONSISTENT IMPROVERS") + 
+  annotate("text", x = 2, y = 10, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1) +
+ transition_states(
+  states = Course,
+  transition_length = 2,
+  state_length = 1
+) +
+  enter_fade() +
+  exit_fade() +
+  ease_aes('sine-in-out')
+
+p <- data %>%
+  filter(Course %in% c(
+    "Ballyneal Golf Club", "Old Town Club", "TPC Sawgrass (Players Stadium)",
+    "Shoreacres", "Sleepy Hollow Country Club", "Myopia Hunt Club",
+    "California Golf Club", "Rock Creek Cattle Company", "Essex County Club"
+  )) %>%
+  pivot_longer(cols = matches("^GD\\d{4} ?Rank$"),names_to = "RatedYear",values_to = "Rank" ) %>%
+  mutate(RatedYear = as.numeric(gsub("GD|Rank|\\s", "", RatedYear))) %>%
+  ggplot(aes(x = RatedYear, y = Rank, color = Course, group = Course)) +
+  geom_line(linetype = "dotted", linewidth = 1.2) +
+  geom_point(size = 3) +theme_classic(base_size = 14) +
+  scale_y_continuous(limits = c(1, 120), breaks = seq(1, 120, by = 10)) +
+  labs(x = "Year Rated",y = "Golf Digest Rank",title = "GOLF DIGEST'S CONSISTENT IMPROVERS") +
+  annotate("text", x = 2012, y = 10,label = "@ParAndRank",color = "lightblue", size = 5, alpha = 1) +
+  transition_states(states = Course,transition_length = 2, state_length = 1, wrap = FALSE ) +
+  shadow_mark(past = TRUE, future = FALSE, alpha = 1) + enter_fade() +exit_fade() + ease_aes("sine-in-out")
+
+# 🔹 Render animation
+anim <- animate(p, fps = 10,duration = 20, width = 900,height = 600,renderer = gifski_renderer())
+
+
 # Public vs Private - Comparing GD and Golf ====
 sum(is.na(data$GD2025Rank))
 data %>% filter(!is.na(GD2025Rank)) %>% count(Status)
@@ -131,13 +188,6 @@ data %>% filter(GD2025Rank >= 1 & GD2025Rank <= 100) %>% count(Status)
 data %>% filter(!is.na(GOLF2024Rank)) %>% count(Status)
 
 
-
-# Percent of Courses covered ====
-#approx 16,000 courses in the US
-#approx 12,000 are public, approx 4,000 are private
-(200/16000)*100
-(33/12000)*100
-(167/4000)*100
 
 
 # Calculate the correlation matrix
@@ -164,33 +214,33 @@ ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Challenge, color=Status)) +
   geom_point(size=1) + geom_smooth(method = "lm", se = FALSE) + theme_classic()
 
 ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Conditioning, group=Status, color=Status)) + 
-   geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
-  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+  geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
 
-  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Challenge, group=Status, color=Status)) + 
-    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
-  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Challenge, group=Status, color=Status)) + 
+  geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
 
-  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025ShotOptions, group=Status, color=Status)) + 
-    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
-  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
-  
+ggplot(data = data, aes(x = GD2025Rank,  y = GD2025ShotOptions, group=Status, color=Status)) + 
+  geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+
 ggplot(data = data, aes(x = GD2025Rank,  y = GD2025LayoutVariety, group=Status, color=Status)) + 
-    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
-  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
-  
-  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Fun, group=Status, color=Status)) + 
-    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
-  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
- 
-  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Aesthetics, group=Status, color=Status)) + 
-    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
-  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
-  
-  ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Character, group=Status, color=Status)) + 
-    geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
-  scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
-  
+  geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+
+ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Fun, group=Status, color=Status)) + 
+  geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+
+ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Aesthetics, group=Status, color=Status)) + 
+  geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+
+ggplot(data = data, aes(x = GD2025Rank,  y = GD2025Character, group=Status, color=Status)) + 
+  geom_point(aes(color = Status)) + theme_classic() + geom_smooth(se = FALSE)
+scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))
+
 rownames(cor_matrixGD2025) <- new_names
 colnames(cor_matrixGD2025) <- new_names
 corrplot(cor_matrixGD2025, method = "number", diag = FALSE, type = 'upper', tl.srt = 45,
@@ -202,7 +252,7 @@ ggplot(data = data, aes(x = GD2025ShotOptions,  y = GD2025LayoutVariety)) +
   scale_x_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25)) +
   scale_y_continuous(limits = c(6.75, 9.25), breaks = seq(6.75, 9.25, by = .25))+
   labs(x = "Shot Options", y = "Layout Variety", title = "Golf Digest 2025 Scores", subtitle = "Layout Variety vs Shot Options")
-  
+
 ggplot(GD2025long) +
   geom_density_ridges(mapping = aes(x = Score, 
                                     y = Category, 
@@ -211,7 +261,7 @@ ggplot(GD2025long) +
 
 GDtheme_classic()GD2025categories$SO_LVdiff <- GD2025categories$GD2025ShotOptions - GD2025categories$GD2025LayoutVariety
 ggplot(data = GD2025categories, aes(x = GD2025ShotOptions, y = SO_LVdiff)) + geom_point() +
-   theme_classic() + scale_y_continuous(limits = c(-0.35, 0.35))
+  theme_classic() + scale_y_continuous(limits = c(-0.35, 0.35))
 
 
 
@@ -226,15 +276,8 @@ data %>% filter(GD2025Rank <=100) %>% ggplot(aes(x=GD2025Rank, y=differenceG2024
   labs(x = "Golf Digest 2025 Rank",y = "Ranking Difference between \nGOLF and Golf Digest")
 
 
-courses25 <- c("Muirfield Village Golf Club", "Shadow Creek", "Pinehurst No. 2", "San Francisco Golf Club", "Shoreacres")
-data %>% filter(GD2025Rank <= 25| GOLF2024Rank <=25) %>% ggplot(aes(x=GD2025Rank, y=GOLF2024Rank, label = ifelse(Course %in% courses25, Course, ""))) + 
-  geom_point(color="green4", size=2.5) + theme_classic() +   geom_text_repel(point.padding = 0.2, size=3 ,nudge_y = .5, hjust = 0.5, segment.curvature = -1e-20, arrow = arrow(length = unit(0.015, "npc"))) + 
-  geom_abline(intercept = 0, slope = 1, color = "darkgreen", linetype = "dashed") +
-  annotate("text", x = 40, y = 75, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1) +
-  labs(x="2025 Golf Digest Ranking", y="2024 GOLF Ranking") +
-  scale_x_continuous(limits = c(0, 50), breaks = seq(0, 50, by = 10)) +
-  scale_y_continuous(limits = c(0, 90), breaks = seq(0, 90, by = 10))
-  
+
+
 
 
 
@@ -301,10 +344,10 @@ custom_labels <- c("2021", "2023", "2025")
 data %>% arrange(desc(Fun25_23inc)) %>% slice_head(n = 9) %>% 
   select(Course, GD2025Fun, GD2023Fun) %>% 
   pivot_longer(
-  cols = c(GD2025Fun, GD2023Fun), 
-  names_to = "Year",        # New column for original column names
-  values_to = "FunScore",         # New column for original column values
-) %>% ggplot(aes(x = Year, y = FunScore)) + geom_point() + facet_wrap(~Course, nrow = 3) +
+    cols = c(GD2025Fun, GD2023Fun), 
+    names_to = "Year",        # New column for original column names
+    values_to = "FunScore",         # New column for original column values
+  ) %>% ggplot(aes(x = Year, y = FunScore)) + geom_point() + facet_wrap(~Course, nrow = 3) +
   theme_bw() + scale_x_discrete(labels = custom_labels) + geom_text(aes(label = FunScore), vjust = -0.5, size=2.5) +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(), 
@@ -314,9 +357,9 @@ data %>% arrange(desc(Fun25_23inc)) %>% slice_head(n = 9) %>%
 
 
 data %>% filter(GD2025Rank <= 100) %>% 
-filter(!is.na(GD2025Rank) & !is.na(GOLF2024Rank)) %>%
+  filter(!is.na(GD2025Rank) & !is.na(GOLF2024Rank)) %>%
   summarise(n = n())
-  
+
 data %>% filter(GD2025Rank <= 100) %>% ggplot(aes(x=GD2025Rank, y=GOLF2024Rank)) + geom_point() +
   theme_classic()
 
@@ -325,7 +368,7 @@ PGA_USopen %>% filter(Rater == "GolfDigest") %>%
   ggplot(aes(x=Year, y=RankGD, color= Tournament)) + geom_point(size=2.5) + theme_classic() + theme(legend.position = c(0.8, 0.8), legend.title = element_blank()) +
   theme(legend.box.background = element_rect(color = "gray", fill = NA, linewidth = 1)) + geom_line(linetype = "dotted") + ylab("Rank (Golf Digest)") +
   scale_color_manual(values = c("PGA Championship" = "gray50", "US Open" = "dodgerblue2"))
-  
+
 
 df <- data.frame(
   x = c(1, 2, 3, NA, 5, 6),
