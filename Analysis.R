@@ -10,6 +10,17 @@ install.packages("tidyr")
 install.packages("naniar")
 install.packages("ggrepel")
 install.packages("gifski")
+install.packages("ggpointdensity")
+install.packages("rnaturalearth")
+install.packages(c("rnaturalearth", "rnaturalearthdata", "sf"))
+install.packages("viridis")
+library(cowplot)
+library(viridis)
+library(maps)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(sf)
+library(ggpointdensity)
 library(gifski)
 library(ggrepel)
 library(ggplot2)
@@ -127,7 +138,7 @@ GD2025cats_ranklong %>% filter(Category == "GD2025ShotOptions" | Category == "GD
 data %>% filter(!is.na(GD2025Rank))
 
 
-# NOV 4, 2025 ====
+# NOV 4, 2025 Top 25 Comparison of GD to GOLF Rankings====
 courses25 <- c("Muirfield Village Golf Club", "Shadow Creek", "Pinehurst No. 2", "San Francisco Golf Club", "Shoreacres")
 data %>% filter(GD2025Rank <= 25| GOLF2024Rank <=25) %>% ggplot(aes(x=GD2025Rank, y=GOLF2024Rank, label = ifelse(Course %in% courses25, Course, ""))) + 
   geom_point(color="green4", size=2.5) + theme_classic() +   geom_text_repel(point.padding = 0.2, size=3 ,nudge_y = .5, hjust = 0.5, segment.curvature = -1e-20, arrow = arrow(length = unit(0.015, "npc"))) + 
@@ -139,27 +150,9 @@ data %>% filter(GD2025Rank <= 25| GOLF2024Rank <=25) %>% ggplot(aes(x=GD2025Rank
 
 
 
-# NOV 6, 2025
+# NOV 6, 2025 Animation of 9 courses with most improvement in Golf Digest====
 
-data %>% filter(Course %in% c("Ballyneal Golf Club", "Old Town Club", "TPC Sawgrass (Players Stadium)", "Shoreacres",
-                  "Sleepy Hollow Country Club", "Myopia Hunt Club", "California Golf Club", "Rock Creek Cattle Company",
-                  "Essex County Club")) %>% 
-  pivot_longer(cols = matches("^GD\\d{4} ?Rank$"), names_to = "RatedYear",  values_to = "Rank" ) %>%
-  mutate(RatedYear = gsub("GD|Rank|\\s", "", RatedYear)  ) %>%
-  select(Course, RatedYear, Rank) %>% ggplot(aes(x=RatedYear, y=Rank, color = Course, group=Course)) + geom_point(size=3) + geom_line(linetype="dotted") + 
-  theme_classic() + scale_y_continuous(limits = c(0, 120), breaks = seq(0, 120, by = 10)) + 
-  labs(x="Year Rated", y="Golf Digest Rank", title = "GOLF DIGEST'S CONSISTENT IMPROVERS") + 
-  annotate("text", x = 2, y = 10, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1) +
- transition_states(
-  states = Course,
-  transition_length = 2,
-  state_length = 1
-) +
-  enter_fade() +
-  exit_fade() +
-  ease_aes('sine-in-out')
-
-p <- data %>%
+GDmostimp <- data %>%
   filter(Course %in% c(
     "Ballyneal Golf Club", "Old Town Club", "TPC Sawgrass (Players Stadium)",
     "Shoreacres", "Sleepy Hollow Country Club", "Myopia Hunt Club",
@@ -169,28 +162,267 @@ p <- data %>%
   mutate(RatedYear = as.numeric(gsub("GD|Rank|\\s", "", RatedYear))) %>%
   ggplot(aes(x = RatedYear, y = Rank, color = Course, group = Course)) +
   geom_line(linetype = "dotted", linewidth = 1.2) +
-  geom_point(size = 3) +theme_classic(base_size = 14) +
-  scale_y_continuous(limits = c(1, 120), breaks = seq(1, 120, by = 10)) +
-  labs(x = "Year Rated",y = "Golf Digest Rank",title = "GOLF DIGEST'S CONSISTENT IMPROVERS") +
-  annotate("text", x = 2012, y = 10,label = "@ParAndRank",color = "lightblue", size = 5, alpha = 1) +
+  geom_point(size = 3) +theme_classic(base_size = 14) + scale_color_manual(
+    values = c("Ballyneal Golf Club" = "#000000", "Old Town Club" = "#999999", "TPC Sawgrass (Players Stadium)" = "#CC79A7",
+     "Shoreacres" = "#D55E00", "Sleepy Hollow Country Club" = "#0072B2","Myopia Hunt Club" = "#F0E442", "Essex County Club" = "#009E73",
+     "California Golf Club" = "#56B4E9", "Rock Creek Cattle Company" = "#E69F00")) +
+  scale_y_continuous(limits = c(1, 120), breaks = c(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100,110, 120)) +
+  scale_x_continuous(limits = c(2018, 2025), breaks = c(2018, 2021, 2023, 2025)) +
+  labs(x = "Year Rated",y = "Golf Digest Rank",title = "GOLF DIGEST'S MOST IMPROVED") +
+  annotate("text", x = 2021, y = 10,label = "@ParAndRank",color = "lightblue", size = 5, alpha = 1) +
   transition_states(states = Course,transition_length = 2, state_length = 1, wrap = FALSE ) +
+  theme(
+    plot.title = element_text(size = 22, face = "bold"),   # title font
+    axis.title.x = element_text(size = 20),                # x-axis label
+    axis.title.y = element_text(size = 20),                # y-axis label
+    axis.text = element_text(size = 16),                   # tick labels
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14)
+  ) +
   shadow_mark(past = TRUE, future = FALSE, alpha = 1) + enter_fade() +exit_fade() + ease_aes("sine-in-out")
 
 # 🔹 Render animation
-anim <- animate(p, fps = 10,duration = 20, width = 900,height = 600,renderer = gifski_renderer())
+anim <- animate(GDmostimp, fps = 10,duration = 20, width = 900,height = 600,renderer = gifski_renderer())
+anim_save("~/Desktop/GolfGraphics/golf_digest_most_improved.gif", animation = anim)
 
 
-# Public vs Private - Comparing GD and Golf ====
+
+
+
+# Nov 9, 2025====
+data <- data %>%
+  mutate(
+    GOLFrankdiff = {
+      # combine into a rowwise vector
+      ranksGOLF <- cbind(GOLF2020Rank, GOLF2022Rank, GOLF2024Rank)
+      # count non-NA per row
+      valid_counts <- rowSums(!is.na(ranksGOLF))
+      # compute min-max diff only if ≥2 values exist
+      GOLFdiffs <- abs(pmin(GOLF2020Rank, GOLF2022Rank, GOLF2024Rank, na.rm = TRUE) -
+                     pmax(GOLF2020Rank, GOLF2022Rank, GOLF2024Rank, na.rm = TRUE))
+      ifelse(valid_counts >= 2, GOLFdiffs, NA)
+    }
+  )
+
+GOLFmostimp <- data %>%
+  filter(Course %in% c(
+    "Baltusrol G.C. (Lower)", "Oakland Hills Country Club (South)", "CapRock Ranch",
+     "The Honors Course", "Old Town Club"
+  )) %>%
+  pivot_longer(cols = matches("^GOLF\\d{4} ?Rank$"),names_to = "RatedYear",values_to = "Rank" ) %>%
+  mutate(RatedYear = as.numeric(gsub("GOLF|Rank|\\s", "", RatedYear))) %>%
+  ggplot(aes(x = RatedYear, y = Rank, color = Course, group = Course)) +
+  geom_line(linetype = "dotted", linewidth = 1.2) +
+  geom_point(size = 4) +theme_classic(base_size = 14) + scale_color_manual(
+    values = c("Baltusrol G.C. (Lower)" = "#000000", "Oakland Hills Country Club (South)" = "#D55E00", "CapRock Ranch" = "#CC79A7",
+                "The Honors Course" = "#0072B2","Old Town Club" = "#F0E442")) +
+  scale_y_continuous(limits = c(1, 100), breaks = c(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)) +
+  scale_x_continuous(limits = c(2020, 2024), breaks = c(2020, 2022, 2024)) +
+  labs(x = "Year Rated",y = "GOLF Rank",title = "GOLF'S MOST IMPROVED") +
+  annotate("text", x = 2021, y = 10,label = "@ParAndRank",color = "lightblue", size = 6, alpha = 1) +
+  transition_states(states = Course,transition_length = 2, state_length = 1, wrap = FALSE ) +
+  theme(
+    plot.title = element_text(size = 24, face = "bold"),   # title font
+    axis.title.x = element_text(size = 22),                # x-axis label
+    axis.title.y = element_text(size = 22),                # y-axis label
+    axis.text = element_text(size = 18),                   # tick labels
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 16)
+  ) +
+  shadow_mark(past = TRUE, future = FALSE, alpha = 1) + enter_fade() +exit_fade() + ease_aes("sine-in-out")
+
+# 🔹 Render animation
+anim <- animate(GOLFmostimp, fps = 10,duration = 20, width = 900,height = 600,renderer = gifski_renderer())
+anim_save("~/Desktop/GolfGraphics/GOLF_most_improved.gif", animation = anim)
+
+
+
+
+
+# Nov 10, 2025 aggregating GD and GOLF ranks====
+
+data <- data %>% mutate(AGGrank = (GD2025Rank + GOLF2024Rank)/2) %>%
+  mutate(AGGRank1_N = row_number(AGGrank))
+
+
+# Nov 11, 2025 GOLF + GD - by state comparison tally ====
 sum(is.na(data$GD2025Rank))
 data %>% filter(!is.na(GD2025Rank)) %>% count(Status)
 
-data %>% filter(GD2025Rank >= 1 & GD2025Rank <= 100) %>% count(Status)
-data %>% filter(!is.na(GOLF2024Rank)) %>% count(Status)
+
+data %>% filter(GOLF2024Rank <=100 | GD2025Rank <= 200) %>% count(State, sort = T) %>% head(19)
+x <- data %>% filter(GOLF2024Rank <=100 | GD2025Rank <= 200) %>% group_by(State, Status) %>%tally() %>% spread(key = Status, value = n, fill = 0)
+print(x, n=50) 
+
+data %>% filter(GD2025PublicRank <=100) %>% count(State, sort = T) %>% head(19)
+
+
+
+# Nov 12, 2025 Map of Top203 and GDtopPublic
+data <- data %>%
+  geocode(city = City, state = State, method = "osm")
+us_states <- map_data("state")
+ggplot() +
+  geom_polygon(data = us_states, aes(x = long, y = lat, group = group), fill = "white", color = "darkslategray") +
+  geom_jitter(data = data, aes(x = long, y = lat, color = Status), size = 1) +
+  #scale_color_viridis_c() + # Example for coloring points based on a 'value'
+  labs(title = "Points on US Map by City and State") +
+  theme_void() +
+  coord_map() # Ensures correct aspect ratio for the map
+
+data %>% filter(!is.na(GD2025PublicRank)) %>% ggplot() + 
+  geom_polygon(data = us_states, aes(x = long, y = lat, group = group), fill = "white", color = "darkslategray") +
+  geom_point(aes(x = long, y = lat), size = 2) +
+  #scale_color_viridis_c() + # Example for coloring points based on a 'value'
+  labs(title = "Points on US Map by City and State") +
+  theme_void() +
+  coord_map() # Ensures correct aspect ratio for the map
+
+us_states <- map_data("state")
+
+# 2️⃣ Reposition Alaska & Hawaii manually
+# scale/translate to fit near CONUS
+us_states_shifted <- us_states %>%
+  mutate(
+    long = case_when(
+      region == "alaska" ~ long * 0.35 + 50,
+      region == "hawaii" ~ long + 85,
+      TRUE ~ long
+    ),
+    lat = case_when(
+      region == "alaska" ~ lat * 0.35 - 10,
+      region == "hawaii" ~ lat - 5,
+      TRUE ~ lat
+    )
+  )
+data_filtered <- data %>%
+  filter(!is.na(GD2025PublicRank), GD2025PublicRank <= 100)
+
+# 4️⃣ Reposition points in AK/HI to match map shift
+data_shifted <- data_filtered %>%
+  mutate(
+    long = case_when(
+      long < -130 & lat > 50 ~ long * 0.35 + 50, # Alaska
+      lat < 25 & long < -150 ~ long + 85,        # Hawaii
+      TRUE ~ long
+    ),
+    lat = case_when(
+      long < -130 & lat > 50 ~ lat * 0.35 - 10,
+      lat < 25 & long < -150 ~ lat - 5,
+      TRUE ~ lat
+    )
+  )
+ggplot() +
+  geom_polygon(
+    data = us_states_shifted,
+    aes(x = long, y = lat, group = group),
+    fill = "gray100", color = "gray70"
+  ) + geom_point(
+    data = data_shifted,
+    aes(x = long, y = lat, color = GD2025PublicRank),
+    size = 3,
+    shape = 21,
+    stroke = 1.2,
+    position = position_jitter(width = 0.3, height = 0.3)  # show duplicates
+  ) +
+  scale_color_gradient(
+    low = "darkgreen", high = "white",
+    limits = c(1, 100),
+    breaks = c(1, 25, 50, 75, 100),
+    name = "2025 Public Rank"
+  ) +  coord_quickmap(xlim = c(-135, -50), ylim = c(18, 55)) +
+  labs(title = "Golf Digest 2025 Public Course Rankings") +
+  theme_void(base_size = 14) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+
+
+# File: scripts/us_map_insets_fixed.R
+
+library(ggplot2)
+library(dplyr)
+library(maps)
+library(cowplot)
+library(viridis)
+
+# Get US states map
+us_all <- map_data("state")
+
+# Split regions
+us_main <- us_all %>% filter(!region %in% c("alaska", "hawaii"))
+us_ak   <- us_all %>% filter(region == "alaska")
+us_hi   <- us_all %>% filter(region == "hawaii")
+
+# Shift + scale Alaska and Hawaii polygons (without distorting shape)
+us_ak_fixed <- us_ak %>%
+  mutate(long = (long + 130) * 0.35 - 120,
+         lat  = (lat - 55)  * 0.35 + 25)
+
+us_hi_fixed <- us_hi %>%
+  mutate(long = long + 55,  # move east
+         lat  = lat - 10)   # move south
+
+# Combine all for main plot
+us_fixed <- bind_rows(us_main, us_ak_fixed, us_hi_fixed)
+
+# Filter your course data
+data_filtered <- data %>%
+  filter(!is.na(GD2025PublicRank), GD2025PublicRank <= 100)
+
+# Match the same coordinate transforms
+data_shifted <- data_filtered %>%
+  mutate(
+    long = case_when(
+      long < -130 & lat > 50 ~ (long + 130) * 0.35 - 120, # Alaska
+      lat < 25 & long < -150 ~ long + 55,                  # Hawaii
+      TRUE ~ long
+    ),
+    lat = case_when(
+      long < -130 & lat > 50 ~ (lat - 55) * 0.35 + 25,
+      lat < 25 & long < -150 ~ lat - 10,
+      TRUE ~ lat
+    )
+  )
+
+# Final map
+ggplot() +
+  geom_polygon(
+    data = us_fixed,
+    aes(x = long, y = lat, group = group),
+    fill = "gray97", color = "gray70"
+  ) +
+  geom_point(
+    data = data_shifted,
+    aes(x = long, y = lat, color = GD2025PublicRank),
+    size = 3, shape = 21, stroke = 0.5,
+    position = position_jitter(width = 0.3, height = 0.3)
+  ) +
+  scale_color_gradient(
+    low = "white", high = "#0072B2",
+    limits = c(1, 100),
+    breaks = c(1, 25, 50, 75, 100),
+    name = "2025 Public Rank"
+  ) +
+  coord_quickmap(xlim = c(-130, -65), ylim = c(22, 52)) +
+  theme_void(base_size = 14) +
+  labs(title = "Golf Digest 2025 Public Course Rankings") +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
 
 
 
 
-# Calculate the correlation matrix
+
+
+
+
+
+# Calculate the correlation matrix ====
 GD2025categories <-  data %>% filter(!is.na(GD2025ShotOptions)) %>%
   select(GD2025ShotOptions:GD2025Conditioning)
 # Create a basic correlation plot
