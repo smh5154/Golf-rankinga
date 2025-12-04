@@ -17,9 +17,6 @@ install.packages("viridis")
 library(cowplot)
 library(viridis)
 library(maps)
-library(rnaturalearth)
-library(rnaturalearthdata)
-library(sf)
 library(ggpointdensity)
 library(gifski)
 library(ggrepel)
@@ -258,7 +255,7 @@ data %>% filter(GD2025PublicRank <=100) %>% count(State, sort = T) %>% head(19)
 
 
 
-# Nov 12, 2025 Map of Top203 and GDtopPublic
+# Nov 14, 2025 Map of Top203 and GDtopPublic====
 data <- data %>%
   geocode(city = City, state = State, method = "osm")
 us_states <- map_data("state")
@@ -286,12 +283,12 @@ us_states_shifted <- us_states %>%
   mutate(
     long = case_when(
       region == "alaska" ~ long * 0.35 + 50,
-      region == "hawaii" ~ long + 85,
+      region == "hawaii" ~ long + 40,
       TRUE ~ long
     ),
     lat = case_when(
       region == "alaska" ~ lat * 0.35 - 10,
-      region == "hawaii" ~ lat - 5,
+      region == "hawaii" ~ lat - 2,
       TRUE ~ lat
     )
   )
@@ -303,12 +300,12 @@ data_shifted <- data_filtered %>%
   mutate(
     long = case_when(
       long < -130 & lat > 50 ~ long * 0.35 + 50, # Alaska
-      lat < 25 & long < -150 ~ long + 85,        # Hawaii
+      lat < 25 & long < -150 ~ long + 40,        # Hawaii
       TRUE ~ long
     ),
     lat = case_when(
       long < -130 & lat > 50 ~ lat * 0.35 - 10,
-      lat < 25 & long < -150 ~ lat - 5,
+      lat < 25 & long < -150 ~ lat - 2,
       TRUE ~ lat
     )
   )
@@ -316,110 +313,191 @@ ggplot() +
   geom_polygon(
     data = us_states_shifted,
     aes(x = long, y = lat, group = group),
-    fill = "gray100", color = "gray70"
+    fill = "gray100", color = "wheat"
   ) + geom_point(
     data = data_shifted,
     aes(x = long, y = lat, color = GD2025PublicRank),
-    size = 3,
+    size = 2.8,
     shape = 21,
-    stroke = 1.2,
+    stroke = 1.3,
     position = position_jitter(width = 0.3, height = 0.3)  # show duplicates
   ) +
   scale_color_gradient(
     low = "darkgreen", high = "white",
     limits = c(1, 100),
     breaks = c(1, 25, 50, 75, 100),
-    name = "2025 Public Rank"
-  ) +  coord_quickmap(xlim = c(-135, -50), ylim = c(18, 55)) +
-  labs(title = "Golf Digest 2025 Public Course Rankings") +
+    name = "Rank"
+  ) +  coord_quickmap(xlim = c(-130, -50), ylim = c(20, 55)) +
+  labs(title = "Top100 Public Courses (Golf Digest '25)") +
   theme_void(base_size = 14) +
   theme(
     legend.position = "bottom",
-    plot.title = element_text(hjust = 0.5, face = "bold")
+    plot.title = element_text(hjust = .5, face = "bold")
   )
 
 
 
-# File: scripts/us_map_insets_fixed.R
 
-library(ggplot2)
-library(dplyr)
-library(maps)
-library(cowplot)
-library(viridis)
 
-# Get US states map
-us_all <- map_data("state")
 
-# Split regions
-us_main <- us_all %>% filter(!region %in% c("alaska", "hawaii"))
-us_ak   <- us_all %>% filter(region == "alaska")
-us_hi   <- us_all %>% filter(region == "hawaii")
 
-# Shift + scale Alaska and Hawaii polygons (without distorting shape)
-us_ak_fixed <- us_ak %>%
-  mutate(long = (long + 130) * 0.35 - 120,
-         lat  = (lat - 55)  * 0.35 + 25)
+# Nov 12, 2025 Harbour Town reply to GOLF Post ====
+HT <- data %>% filter(Course == "Harbour Town Golf Links")
+HTcolstopivot <- c("GD2025ShotOptions", "GD2025Character", "GD2025Fun", "GD2025LayoutVariety",
+                   "GD2025Challenge", "GD2025Aesthetics", "GD2025Conditioning",
+                   "GD2023ShotOptions", "GD2023Character", "GD2023Fun", "GD2023LayoutVariety",
+                   "GD2023Challenge", "GD2023Aesthetics", "GD2023Conditioning",
+                   "GD2021ShotOptions", "GD2021Character", "GD2021LayoutVariety",
+                   "GD2021Challenge", "GD2021Aesthetics", "GD2021Conditioning")
 
-us_hi_fixed <- us_hi %>%
-  mutate(long = long + 55,  # move east
-         lat  = lat - 10)   # move south
+HarbTownlong <- HT%>%
+  pivot_longer(cols = all_of(HTcolstopivot), names_to = c(".value", "year"),names_pattern = "GD(.)(.*)") %>% 
+  rename(Score = '2' ,Yr = 'year' ) %>%   extract(col = Yr,into = c("Year", "Category"),regex = "^0?(\\d{2})(.*)") 
 
-# Combine all for main plot
-us_fixed <- bind_rows(us_main, us_ak_fixed, us_hi_fixed)
+HarbTownlong <- HarbTownLong <- mutate(Category = fct_recode(Category,
+                            "Layout Variety" = "LayoutVariety",
+                            "Shot Options"  = "Shot Options"))
 
-# Filter your course data
-data_filtered <- data %>%
-  filter(!is.na(GD2025PublicRank), GD2025PublicRank <= 100)
 
-# Match the same coordinate transforms
-data_shifted <- data_filtered %>%
-  mutate(
-    long = case_when(
-      long < -130 & lat > 50 ~ (long + 130) * 0.35 - 120, # Alaska
-      lat < 25 & long < -150 ~ long + 55,                  # Hawaii
-      TRUE ~ long
-    ),
+ggplot(data = HarbTownlong, aes(x=Year, y=Score, group = Category)) + geom_point(size=3, color="darkgreen") + 
+  geom_line(linetype = "dotted") + labs(y= "Score (out of 10)", title = "Harbour Town Golf Digest Scores (2021-2025)") + 
+  theme_light() + facet_wrap(~Category, nrow = 2) + theme(panel.grid = element_blank()) + 
+  scale_y_continuous(limits = c(7.2, 7.6), breaks = c(7.20, 7.30, 7.40, 7.50, 7.60))
+
+# Nov 14, 2025 "Resort/Multi-Course" ====
+
+data %>% filter(`Multi-course` != "no") %>% summarise(resorts_clubs = n_distinct(`Multi-course`))
+
+PubResorts <- data %>% 
+  filter(Status == "Public") %>% 
+  filter(`Multi-course` != "no") %>% 
+  group_by(`Multi-course`) %>%
+  summarise(
+    n = n(),
+    averagePubRank = mean(GD2025PublicRank, na.rm = TRUE),
+    avgShotOptions = mean(GD2025ShotOptions, na.rm=TRUE),
+    avgAesthetics = mean(GD2025Aesthetics, na.rm=TRUE),
+    avgLV = mean(GD2025LayoutVariety, na.rm=TRUE),
+    avgChallenge = mean(GD2025Challenge, na.rm=TRUE),
+    avgConditioning = mean(GD2025Conditioning, na.rm=TRUE),
+    avgCharacter = mean(GD2025Character, na.rm=TRUE),
+    avgFun = mean(GD2025Fun, na.rm=TRUE),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(n)) %>% head(14)
+
+PubResorts <- PubResorts %>% rename(Resort = 'Multi-course')
+
+
+ggplot(PubResorts, aes(x=averagePubRank, y=avgFun))  + geom_point(color="darkgreen", size=3) + theme_classic() +
+  labs(x="Rank (average)", y="Fun Score (average)") +
+  scale_y_continuous(limits = c(6.9, 8.1), breaks = seq(6.9, 8.1, by = .10)) + 
+  annotate("text", x = 70, y = 7.9, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1) + 
+  geom_text_repel(aes(label = Resort),size = 3,max.overlaps = Inf )
+
+ggplot(PubResorts, aes(x=averagePubRank, y=avgConditioning))  + geom_point(color="darkgreen", size=3) + theme_classic() +
+  geom_text_repel(aes(label = Resort),size = 3,max.overlaps = Inf, color="darkgreen" )+ labs(x="Rank (average)", y="Conditioning Score (average)") +
+  scale_y_continuous(limits = c(6.9, 8.1), breaks = seq(6.9, 8.1, by = .10)) + 
+  annotate("text", x = 70, y = 7.9, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1)
+
+ggplot(PubResorts, aes(x=averagePubRank, y=avgCharacter))  + geom_point(color="darkgreen", size=3) + theme_classic() +
+  geom_text_repel(aes(label = Resort),size = 3,max.overlaps = Inf, color="darkgreen" )+ labs(x="Rank (average)", y="Character Score (average)") +
+  scale_y_continuous(limits = c(6.9, 8.1), breaks = seq(6.9, 8.1, by = .10)) + 
+  annotate("text", x = 70, y = 7.9, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1)
+
+ggplot(PubResorts, aes(x=averagePubRank, y=avgLV))  + geom_point(color="darkgreen", size=3) + theme_classic() +
+  geom_text_repel(aes(label = Resort),size = 3,max.overlaps = Inf )+ labs(x="Rank (average)", y="Layout Variety Score (average)") +
+  scale_y_continuous(limits = c(6.9, 8.1), breaks = seq(6.9, 8.1, by = .10)) + 
+  annotate("text", x = 70, y = 7.9, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1)
+
+ggplot(PubResorts, aes(x=averagePubRank, y=avgShotOptions))  + geom_point(color="darkgreen", size=3) + theme_classic() +
+  geom_text_repel(aes(label = Resort),size = 3,max.overlaps = Inf )+ labs(x="Rank (average)", y="Shot Options Score (average)") +
+  scale_y_continuous(limits = c(6.9, 8.1), breaks = seq(6.9, 8.1, by = .10)) + 
+  annotate("text", x = 70, y = 7.9, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1)
+
+ggplot(PubResorts, aes(x=averagePubRank, y=avgChallenge))  + geom_point(color="darkgreen", size=3) + theme_classic() +
+  geom_text_repel(aes(label = Resort),size = 3,max.overlaps = Inf , color="darkgreen") + labs(x="Rank (average)", y="Challenge Score (average)") +
+  scale_y_continuous(limits = c(6.9, 8.1), breaks = seq(6.9, 8.1, by = .10)) + 
+  annotate("text", x = 70, y = 7.9, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1)
+
+ggplot(PubResorts, aes(x=averagePubRank, y=avgAesthetics))  + geom_point(color="darkgreen", size=3) + theme_classic() +
+  geom_text_repel(aes(label = Resort),size = 3,max.overlaps = Inf, color = "darkgreen" )+ labs(x="Rank (average)", y="Aesthetics Score (average)") +
+  scale_y_continuous(limits = c(6.9, 8.1), breaks = seq(6.9, 8.1, by = .10)) + 
+  annotate("text", x = 70, y = 7.9, label = "@ParAndRank", angle = 0, size = 5, color = "lightblue", alpha = 1)
+
+
+
+# Nov 28, 2025 Golfweek & GD Public Map====
+us_states <- map_data("state")
+
+us_states_shifted <- us_states %>%
+  mutate(long = case_when(
+      region == "alaska" ~ long * 0.35 + 50,
+      region == "hawaii" ~ long + 40,
+      TRUE ~ long),
     lat = case_when(
-      long < -130 & lat > 50 ~ (lat - 55) * 0.35 + 25,
-      lat < 25 & long < -150 ~ lat - 10,
-      TRUE ~ lat
-    )
-  )
+      region == "alaska" ~ lat * 0.35 - 10,
+      region == "hawaii" ~ lat - 2,
+      TRUE ~ lat) )
 
-# Final map
+data <- data %>%mutate(PubCoursePresent = case_when(
+      !is.na(GD2025PublicRank) & !is.na(GolfWeek2025PublicRank) ~ "Golf Digest & Golfweek",
+      !is.na(GD2025PublicRank) &  is.na(GolfWeek2025PublicRank) ~ "Golf Digest Top100",
+      is.na(GD2025PublicRank) & !is.na(GolfWeek2025PublicRank) ~ "Golfweek Top100",
+      TRUE                   ~ "Neither") )
+
+
+gwgd100pubfiltered <- data %>% filter(PubCoursePresent != "Neither" )
+
+# 4️⃣ Reposition points in AK/HI to match map shift
+data_shifted <- gwgd100pubfiltered %>%
+  mutate( long = case_when(
+      long < -130 & lat > 50 ~ long * 0.35 + 50, # Alaska
+      lat < 25 & long < -150 ~ long + 40,        # Hawaii
+      TRUE ~ long),
+    lat = case_when(
+      long < -130 & lat > 50 ~ lat * 0.35 - 10,
+      lat < 25 & long < -150 ~ lat - 2,
+      TRUE ~ lat))
 ggplot() +
   geom_polygon(
-    data = us_fixed,
+    data = us_states_shifted,
     aes(x = long, y = lat, group = group),
-    fill = "gray97", color = "gray70"
-  ) +
+    fill = "gray100", color = "wheat" ) + 
   geom_point(
-    data = data_shifted,
-    aes(x = long, y = lat, color = GD2025PublicRank),
-    size = 3, shape = 21, stroke = 0.5,
-    position = position_jitter(width = 0.3, height = 0.3)
-  ) +
-  scale_color_gradient(
-    low = "white", high = "#0072B2",
-    limits = c(1, 100),
-    breaks = c(1, 25, 50, 75, 100),
-    name = "2025 Public Rank"
-  ) +
-  coord_quickmap(xlim = c(-130, -65), ylim = c(22, 52)) +
-  theme_void(base_size = 14) +
-  labs(title = "Golf Digest 2025 Public Course Rankings") +
-  theme(
-    legend.position = "right",
-    plot.title = element_text(hjust = 0.5, face = "bold")
+    data = data_shifted,aes(x = long, y = lat, color = PubCoursePresent),size = 2,shape = 21,stroke = 1.2,
+    position = position_jitter(width = 0.3, height = 0.3))  +  coord_quickmap(xlim = c(-130, -50), ylim = c(20, 55)) +
+  scale_color_manual(values = c( "Golf Digest Top100"   = "slategray2", "Golfweek Top100"   = "salmon1", "Golf Digest & Golfweek" = "darkgreen"
+    )
+  ) + 
+  labs(title = "Top 100 Public Courses") +  theme_void(base_size = 14) +
+  theme( legend.position = "bottom",legend.title = element_blank(), plot.title = element_text(hjust = .5, face = "bold") )
+
+
+gwgd100pubfiltered %>% count(PubCoursePresent)
+
+# Nov 29, 2025 GolfWeek plot score by rank ====
+GWcourses25 <- c("Pebble Beach Golf Links", "Pacific Dunes", "Pinehurst No. 2", "Whistling Straits (Straits)", 
+               "Pasatiempo Golf Club", "Kiawah Island Golf Resort: The Ocean Course", 
+               "Karsten Creek Golf Club", "Manele Golf Course", "Chambers Bay")
+
+data %>% filter (!is.na(GolfWeek2025PublicScore)) %>%
+  ggplot (aes(x=GolfWeek2025PublicRank, y=GolfWeek2025PublicScore, label = ifelse(Course %in% GWcourses25, Course, ""))) + geom_jitter(color="darkgreen", size=2) +
+  theme_classic() + labs(x="Golfweek US Public Course Rank", y="Golfweek Score") + 
+  scale_y_continuous(limits = c(6.5, 8.95), breaks = c(6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 8.85)) +
+  scale_x_continuous(limits = c(1, 100), breaks = c(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)) +
+  annotate("text", x = 17, y = 6.75,label = "@ParAndRank",color = "lightblue", size = 7, alpha = 1) + 
+  geom_text_repel(
+    nudge_x = 4.35,      # small horizontal push → short line
+    hjust = 0,
+    direction = "x",
+    point.padding = 0.0,
+    size = 3,
+    segment.size = 0.3,  # thin line
+    segment.alpha = 0.6  # faint line
   )
 
-
-
-
-
-
-
+  geom_text_repel(size=3 ,nudge_x = 1.1, hjust = 0.0, direction = "x", segment.color = NA) 
 
 
 # Calculate the correlation matrix ====
@@ -498,24 +576,8 @@ ggplot(data = GD2025categories, aes(x = GD2025ShotOptions, y = SO_LVdiff)) + geo
 
 
 
-# post mm/dd/yy ====
-
-data <- data %>%
-  mutate(differenceG2024_GD2025 = GD2025Rank - GOLF2024Rank)
-data %>% filter(GD2025Rank <=100) %>% ggplot(aes(x=GD2025Rank, y=differenceG2024_GD2025)) + geom_point() + theme_classic() + 
-  geom_hline(yintercept = 0, color = "darkgreen", linetype = "dashed") + 
-  annotate("text", x = 80, y = 50, label = "@ParAndRank", angle = 0, size = 5, color = "grey", alpha = 1) +
-  labs(x = "Golf Digest 2025 Rank",y = "Ranking Difference between \nGOLF and Golf Digest")
 
 
-
-
-
-
-
-data %>% filter(GD2025Rank <= 100| GOLF2024Rank <=100) %>% ggplot(aes(x=GD2025Rank, y=GOLF2024Rank)) + geom_point() + theme_classic() + 
-  geom_abline(intercept = 0, slope = 1, color = "darkgreen", linetype = "dashed") + geom_miss_point()  +
-  annotate("text", x = 40, y = 100, label = "@ParAndRank", angle = 0, size = 5, color = "grey", alpha = 1)
 
 GD2025data <- GD2025data %>% mutate(GD2025ShotOptionsChange = GD2025ShotOptions - lead(GD2025ShotOptions)) %>%
   mutate(GD2025CharacterChange = GD2025Character - lead(GD2025Character)) %>%
